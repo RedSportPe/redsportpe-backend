@@ -3,11 +3,9 @@ package com.redsport.backend.catalog.domain.model.entities;
 import com.redsport.backend.catalog.domain.model.valueobjects.Sku;
 import jakarta.persistence.*;
 import lombok.Getter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
-/**
- * Variant is an entity inside the Product aggregate. It's never accessed or
- * persisted on its own — always through its aggregate root (Product).
- */
 @Entity
 @Table(name = "variants")
 @Getter
@@ -16,21 +14,15 @@ public class Variant {
     @EmbeddedId
     private Sku sku;
 
-    @Column(name = "gender", length = 2, nullable = false)
+    @Column(name = "gender", length = 2)
     private String gender;
 
-    @Column(name = "size", length = 4, nullable = false)
+    @Column(name = "size", length = 4)
     private String size;
 
-    @Column(name = "color", length = 3, nullable = false)
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "color", length = 3)
     private String color;
 
-    @Column(name = "total_stock", nullable = false)
-    private Integer totalStock;
-
-    protected Variant() { } // required by JPA
-
-    public boolean isAvailable() {
-        return totalStock != null && totalStock > 0;
-    }
+    protected Variant() { }
 }

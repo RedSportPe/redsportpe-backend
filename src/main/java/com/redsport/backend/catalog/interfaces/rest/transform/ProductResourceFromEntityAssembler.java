@@ -5,7 +5,6 @@ import com.redsport.backend.catalog.interfaces.rest.resources.ProductResource;
 import com.redsport.backend.catalog.interfaces.rest.resources.VariantResource;
 import java.util.List;
 
-/** Translates the domain aggregate into an API resource. The entity never leaves the domain. */
 public class ProductResourceFromEntityAssembler {
 
     public static ProductResource toResourceFromEntity(Product product) {
@@ -15,7 +14,7 @@ public class ProductResourceFromEntityAssembler {
                         v.getGender(),
                         v.getSize(),
                         v.getColor(),
-                        v.getTotalStock()
+                        null
                 ))
                 .toList();
 
@@ -25,7 +24,8 @@ public class ProductResourceFromEntityAssembler {
                 product.getDescription(),
                 product.getCategory(),
                 product.getPrice(),
-                product.getImageUrl(),
+                product.coverImageUrl(),
+                product.imageUrls(),
                 product.isPublished(),
                 product.isFeatured(),
                 product.getSalesCount(),

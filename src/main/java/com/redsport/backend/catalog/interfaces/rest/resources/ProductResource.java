@@ -10,6 +10,7 @@ public record ProductResource(
         String category,
         BigDecimal price,
         String imageUrl,
+        List<String> images,
         boolean published,
         boolean featured,
         Integer salesCount,
