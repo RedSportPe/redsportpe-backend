@@ -33,11 +33,11 @@ public class User {
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "provider", nullable = false, columnDefinition = "auth_provider")
+    @Column(name = "provider", nullable = false)
     private AuthProvider provider;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role", nullable = false, columnDefinition = "user_role")
+    @Column(name = "role", nullable = false)
     private Roles role;
 
     @Column(name = "points", nullable = false)
