@@ -3,95 +3,105 @@ package com.redsport.backend.shared.infrastructure.security;
 import com.redsport.backend.identity.infrastructure.authorization.sfs.pipeline.BearerAuthorizationRequestFilter;
 import com.redsport.backend.identity.infrastructure.authorization.sfs.services.UserDetailsServiceImpl;
 import com.redsport.backend.identity.infrastructure.tokens.jwt.services.TokenService;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.*;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.List;
+import org.springframework.web.cors.*;
 
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
 public class WebSecurityConfig {
+  @Bean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+  }
 
-    private final TokenService tokenService;
-    private final UserDetailsServiceImpl userDetailsService;
+  @Bean
+  public BearerAuthorizationRequestFilter bearerFilter(
+      TokenService tokens, UserDetailsServiceImpl users) {
+    return new BearerAuthorizationRequestFilter(tokens, users);
+  }
 
-    public WebSecurityConfig(TokenService tokenService, UserDetailsServiceImpl userDetailsService) {
-        this.tokenService = tokenService;
-        this.userDetailsService = userDetailsService;
-    }
+  @Bean
+  public FilterRegistrationBean<BearerAuthorizationRequestFilter> filterRegistration(
+      BearerAuthorizationRequestFilter filter) {
+    var registration = new FilterRegistrationBean<>(filter);
+    registration.setEnabled(false);
+    return registration;
+  }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+  @Bean
+  public SecurityFilterChain security(
+      HttpSecurity http, BearerAuthorizationRequestFilter filter, CorsConfigurationSource cors)
+      throws Exception {
+    return http.cors(c -> c.configurationSource(cors))
+        .csrf(c -> c.disable())
+        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            e ->
+                e.authenticationEntryPoint(
+                        (req, res, ex) -> {
+                          res.setStatus(401);
+                          res.setContentType("application/problem+json");
+                          res.getWriter()
+                              .write("{\"status\":401,\"detail\":\"Autenticación requerida\"}");
+                        })
+                    .accessDeniedHandler(
+                        (req, res, ex) -> {
+                          res.setStatus(403);
+                          res.setContentType("application/problem+json");
+                          res.getWriter().write("{\"status\":403,\"detail\":\"Acceso denegado\"}");
+                        }))
+        .authorizeHttpRequests(
+            a ->
+                a.requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .permitAll()
+                    .requestMatchers(
+                        "/api/auth/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**")
+                    .permitAll()
+                    .requestMatchers(
+                        HttpMethod.GET,
+                        "/api/products/**",
+                        "/api/promotions",
+                        "/api/catalog-metadata/**",
+                        "/api/media/**")
+                    .permitAll()
+                    .requestMatchers("/api/admin/**", "/api/stores/**")
+                    .hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/users")
+                    .hasRole("ADMIN")
+                    .requestMatchers("/api/operator/**")
+                    .hasRole("OPERATOR")
+                    .requestMatchers("/api/orders/**", "/api/cart/**", "/api/favorites/**")
+                    .hasRole("CUSTOMER")
+                    .requestMatchers("/api/users/me/**")
+                    .authenticated()
+                    .anyRequest()
+                    .denyAll())
+        .addFilterBefore(filter, UsernamePasswordAuthenticationFilter.class)
+        .build();
+  }
 
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
-
-    /** Our JWT filter, wired as a Spring bean */
-    @Bean
-    public BearerAuthorizationRequestFilter bearerAuthorizationRequestFilter() {
-        return new BearerAuthorizationRequestFilter(tokenService, userDetailsService);
-    }
-
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        // ===== Public endpoints =====
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
-                        // CORS preflight requests must pass
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // ===== Admin-only: managing stores and users =====
-                        .requestMatchers(HttpMethod.POST, "/api/stores/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/api/stores/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/api/stores/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.POST, "/api/users/**").hasRole("ADMIN")
-
-                        // ===== Authenticated (any logged-in user) =====
-                        .requestMatchers(HttpMethod.GET, "/api/stores/**").authenticated()
-
-                        // ===== Everything else requires authentication =====
-                        .anyRequest().authenticated()
-                )
-                // Register our JWT filter BEFORE the username/password filter
-                .addFilterBefore(bearerAuthorizationRequestFilter(),
-                        UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:4200"));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setAllowCredentials(true);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
-    }
+  @Bean
+  public CorsConfigurationSource cors(
+      @Value("${app.cors.allowed-origins:http://localhost:4200}") String origins) {
+    var c = new CorsConfiguration();
+    c.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).toList());
+    c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+    c.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key"));
+    var source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", c);
+    return source;
+  }
 }

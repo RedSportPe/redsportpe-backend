@@ -13,22 +13,24 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping(value = "/api/users", produces = "application/json")
 public class UsersController {
 
-    private final UserCommandService userCommandService;
+  private final UserCommandService userCommandService;
 
-    public UsersController(UserCommandService userCommandService) {
-        this.userCommandService = userCommandService;
-    }
+  public UsersController(UserCommandService userCommandService) {
+    this.userCommandService = userCommandService;
+  }
 
-    @PostMapping
-    public ResponseEntity<UserResource> createUser(@RequestBody CreateUserResource resource) {
-        var command = new CreateUserCommand(
-                resource.name(),
-                resource.email(),
-                resource.password(),
-                Roles.valueOf(resource.role())   // "operator", "admin", "customer"
-        );
-        var user = userCommandService.handle(command);
-        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(user);
-        return ResponseEntity.status(201).body(userResource);
-    }
+  @PostMapping
+  public ResponseEntity<UserResource> createUser(
+      @jakarta.validation.Valid @RequestBody CreateUserResource resource) {
+    var command =
+        new CreateUserCommand(
+            resource.name(),
+            resource.email(),
+            resource.password(),
+            Roles.valueOf(resource.role()) // "operator", "admin", "customer"
+            );
+    var user = userCommandService.handle(command);
+    var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(user);
+    return ResponseEntity.status(201).body(userResource);
+  }
 }

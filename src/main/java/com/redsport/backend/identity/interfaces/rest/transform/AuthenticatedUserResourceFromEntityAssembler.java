@@ -4,13 +4,21 @@ import com.redsport.backend.identity.domain.model.aggregates.User;
 import com.redsport.backend.identity.interfaces.rest.resources.AuthenticatedUserResource;
 
 public class AuthenticatedUserResourceFromEntityAssembler {
-    public static AuthenticatedUserResource toResourceFromEntity(User user, String token) {
-        return new AuthenticatedUserResource(
-                user.getId().toString(),
-                user.getName(),
-                user.getEmail(),
-                user.getRole().name(),
-                token
-        );
-    }
+  public static AuthenticatedUserResource toResourceFromEntity(User user, String token) {
+    return toResourceFromEntity(user, token, null);
+  }
+
+  public static AuthenticatedUserResource toResourceFromEntity(
+      User user, String token, String storeCode) {
+    return new AuthenticatedUserResource(
+        user.getId().toString(),
+        user.getName(),
+        user.getEmail(),
+        user.getRole().name(),
+        user.getPoints(),
+        storeCode,
+        user.getProvider().name(),
+        user.getCreatedAt().toString(),
+        token);
+  }
 }

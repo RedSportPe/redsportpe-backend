@@ -1,28 +1,30 @@
 package com.redsport.backend.catalog.interfaces.rest;
 
-import com.redsport.backend.catalog.domain.model.queries.GetAllPublishedProductsQuery;
-import com.redsport.backend.catalog.domain.services.ProductQueryService;
-import com.redsport.backend.catalog.interfaces.rest.resources.ProductResource;
-import com.redsport.backend.catalog.interfaces.rest.transform.ProductResourceFromEntityAssembler;
-import org.springframework.http.ResponseEntity;
+import com.redsport.backend.catalog.application.internal.CatalogService;
+import java.util.UUID;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
 
 @RestController
-@RequestMapping(value = "/api/products", produces = "application/json")
+@RequestMapping("/api/products")
 public class ProductsController {
-    private final ProductQueryService productQueryService;
+  private final CatalogService service;
 
-    public ProductsController(ProductQueryService productQueryService) {
-        this.productQueryService = productQueryService;
-    }
+  public ProductsController(CatalogService service) {
+    this.service = service;
+  }
 
-    @GetMapping
-    public ResponseEntity<List<ProductResource>> getAllProducts() {
-        var products = productQueryService.handle(new GetAllPublishedProductsQuery());
-        var resources = products.stream()
-                .map(ProductResourceFromEntityAssembler::toResourceFromEntity)
-                .toList();
-        return ResponseEntity.ok(resources);
-    }
+  @GetMapping
+  public Object list() {
+    return service.list(false);
+  }
+
+  @GetMapping("/{id}")
+  public Object get(@PathVariable UUID id) {
+    return service.get(id, false);
+  }
+
+  @GetMapping("/by-sku/{sku}")
+  public Object sku(@PathVariable String sku) {
+    return service.lookup(sku);
+  }
 }
